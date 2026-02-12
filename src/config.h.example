@@ -1,0 +1,24 @@
+#ifndef CONFIG_H
+#define CONFIG_H
+
+/* Shared DB config */
+#define DB_HOST "YOUR_DB_HOST"
+#define DB_USER "YOUR_DB_USER"
+#define DB_PASS "YOUR_DB_PASSWORD"
+#define DB_NAME "YOUR_DB_NAME"
+
+/* Airly config */
+#define AIRLY_API_URL "https://airapi.airly.eu/v2/measurements/point"
+#define AIRLY_LAT "YOUR_AIRLY_LATITUDE"
+#define AIRLY_LNG "YOUR_AIRLY_LONGITUDE"
+#define AIRLY_API_KEY "YOUR_AIRLY_API_KEY"
+#define AIRLY_SENSOR_LABEL "YOUR_AIRLY_SENSOR_LABEL"
+
+/* PMS config */
+#define PMS_SENSOR_NAME "YOUR_PMS_SENSOR_NAME"
+#define PMS_UART_DEVICE "YOUR_UART_DEVICE"
+#define PMS_BAUDRATE B9600
+#define PMS_AVERAGING_INTERVAL_SEC 3600
+#define PMS_ERROR_MAX 5
+
+#endif
