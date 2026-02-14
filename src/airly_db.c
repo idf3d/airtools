@@ -8,6 +8,7 @@
 #else
 #error "MySQL headers not found (expected mariadb/mysql.h or mysql/mysql.h)"
 #endif
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -48,7 +49,9 @@ int airly_write_measurements_to_mysql(const AirlyMeasurement *measurements, size
     }
 
     for (i = 0; i < count; i++) {
-        long long ts = (long long)((measurements[i].from_ts + measurements[i].till_ts) / 2);
+        int64_t from_ts = (int64_t)measurements[i].from_ts;
+        int64_t till_ts = (int64_t)measurements[i].till_ts;
+        long long ts = (long long)(from_ts + (till_ts - from_ts) / 2);
         unsigned long sensor_len = (unsigned long)strlen(AIRLY_SENSOR_LABEL);
 
         for (j = 0; j < measurements[i].values_count; j++) {
