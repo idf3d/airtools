@@ -5,49 +5,14 @@
 #include <termios.h>
 #include <signal.h>
 #include <errno.h>
-#include <fcntl.h>
-#if __has_include(<mariadb/mysql.h>)
-#include <mariadb/mysql.h>
-#elif __has_include(<mysql/mysql.h>)
-#include <mysql/mysql.h>
-#else
-#error "MySQL headers not found (expected mariadb/mysql.h or mysql/mysql.h)"
-#endif
 #include <time.h>
 #include "config.h"
+#include "pms_db.h"
 
 volatile sig_atomic_t stop = 0;
 void handle_sigint(int sig) { (void)sig; stop = 1; }
 
 int uart_fd = -1;
-
-void save_to_mysql(double pm1, double pm25, double pm10) {
-    MYSQL *conn = mysql_init(NULL);
-    if (!mysql_real_connect(conn, DB_HOST, DB_USER, DB_PASS, DB_NAME, 0, NULL, 0)) {
-        printf("MySQL connect error: %s\n", mysql_error(conn));
-        return;
-    }
-
-    char query[512];
-    snprintf(query, sizeof(query),
-        "INSERT INTO airQuality(sensor,param,value) VALUES "
-        "('%s','PM 1.0',%.2f),"
-        "('%s','PM 2.5',%.2f),"
-        "('%s','PM 10',%.2f);",
-        PMS_SENSOR_NAME, pm1,
-        PMS_SENSOR_NAME, pm25,
-        PMS_SENSOR_NAME, pm10
-    );
-
-    if (mysql_query(conn, query)) {
-        printf("MySQL insert error: %s\n", mysql_error(conn));
-    } else {
-        printf("Saved hourly average: pm1=%.2f pm2.5=%.2f pm10=%.2f\n",
-               pm1, pm25, pm10);
-    }
-
-    mysql_close(conn);
-}
 
 int uart_open(const char *device) {
     int fd = open(device, O_RDWR | O_NOCTTY);
@@ -125,7 +90,7 @@ int main() {
                     double avg_pm25 = sum_pm25 / count;
                     double avg_pm10 = sum_pm10 / count;
 
-                    save_to_mysql(avg_pm1, avg_pm25, avg_pm10);
+                    pms_db_save_average(now, avg_pm1, avg_pm25, avg_pm10);
 
                     sum_pm1 = sum_pm25 = sum_pm10 = 0;
                     count = 0;
@@ -136,6 +101,7 @@ int main() {
     }
 
     printf("\nStopping...\n");
+    pms_db_cleanup();
     close(uart_fd);
     return 0;
 }

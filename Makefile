@@ -43,7 +43,9 @@ AIRLY_OBJS := \
 	$(BUILD_DIR)/airly_json.o \
 	$(BUILD_DIR)/airly_db.o
 
-PMS_OBJS := $(BUILD_DIR)/pms.o
+PMS_OBJS := \
+	$(BUILD_DIR)/pms.o \
+	$(BUILD_DIR)/pms_db.o
 
 .PHONY: all airly pms clean check-config
 
