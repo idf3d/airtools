@@ -2,9 +2,10 @@
 
 Small C tools for monitoring indoor air quality and comparing it with outdoor air quality.
 
-- `pms`: reads data from a local PMS sensor (home/indoor).
+- `pms`: reads data from a local PMS sensor via UART (home/indoor).
+- `pms_bt`: same as `pms`, but connects via BLE (HC-08 bridge).
 - `airly`: fetches outdoor measurements from Airly API.
-- both write data to MySQL/MariaDB.
+- all write data to MySQL/MariaDB.
 
 ## Requirements
 
@@ -12,6 +13,7 @@ Small C tools for monitoring indoor air quality and comparing it with outdoor ai
 - `libcurl`
 - `libcjson`
 - MySQL/MariaDB client library (`mariadb` via `pkg-config`, or `mysql_config`)
+- [SimpleBLE](https://github.com/OpenBluetoothToolbox/SimpleBLE) C bindings (`pms_bt` only)
 
 Example (MacPorts):
 
@@ -33,9 +35,10 @@ Table structure for stored measurements is in `src/schema.sql`.
 ## Build
 
 ```bash
-make        # builds both tools
-make airly  # builds only airly
-make pms    # builds only pms
+make          # builds all tools
+make airly    # builds only airly
+make pms      # builds only pms
+make pms_bt   # builds only pms_bt
 ```
 
 Binaries are generated in `bin/`.

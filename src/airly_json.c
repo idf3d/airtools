@@ -87,28 +87,10 @@ static int parse_airly_time(const char *s, time_t *out) {
     return 0;
 }
 
-void airly_free_measurements(AirlyMeasurement *measurements, size_t count) {
-    size_t i;
-    size_t j;
-
-    if (!measurements) {
-        return;
-    }
-
-    for (i = 0; i < count; i++) {
-        for (j = 0; j < measurements[i].values_count; j++) {
-            free(measurements[i].values[j].name);
-        }
-        free(measurements[i].values);
-    }
-
-    free(measurements);
-}
-
-int airly_parse_history(const char *json, AirlyMeasurement **out_measurements, size_t *out_count) {
+int airly_parse_history(const char *json, Measurement ***out_measurements, size_t *out_count) {
     cJSON *root = NULL;
     cJSON *history = NULL;
-    AirlyMeasurement *measurements = NULL;
+    Measurement **measurements = NULL;
     int i = 0;
     int count = 0;
 
@@ -132,53 +114,54 @@ int airly_parse_history(const char *json, AirlyMeasurement **out_measurements, s
         return 0;
     }
 
-    measurements = calloc((size_t)count, sizeof(AirlyMeasurement));
+    measurements = calloc((size_t)count, sizeof(Measurement *));
     if (!measurements) {
         cJSON_Delete(root);
         return -1;
     }
 
     for (i = 0; i < count; i++) {
-        cJSON *measurement = cJSON_GetArrayItem(history, i);
+        cJSON *entry = cJSON_GetArrayItem(history, i);
         cJSON *from = NULL;
         cJSON *till = NULL;
         cJSON *values = NULL;
         int values_count = 0;
         int j = 0;
+        time_t from_ts, till_ts;
 
-        if (!cJSON_IsObject(measurement)) {
-            airly_free_measurements(measurements, (size_t)count);
+        if (!cJSON_IsObject(entry)) {
+            measurements_free(measurements, (size_t)count);
             cJSON_Delete(root);
             return -1;
         }
 
-        from = cJSON_GetObjectItemCaseSensitive(measurement, "fromDateTime");
-        till = cJSON_GetObjectItemCaseSensitive(measurement, "tillDateTime");
-        values = cJSON_GetObjectItemCaseSensitive(measurement, "values");
+        from = cJSON_GetObjectItemCaseSensitive(entry, "fromDateTime");
+        till = cJSON_GetObjectItemCaseSensitive(entry, "tillDateTime");
+        values = cJSON_GetObjectItemCaseSensitive(entry, "values");
 
         if (!cJSON_IsString(from) || from->valuestring == NULL ||
             !cJSON_IsString(till) || till->valuestring == NULL ||
             !cJSON_IsArray(values)) {
-            airly_free_measurements(measurements, (size_t)count);
+            measurements_free(measurements, (size_t)count);
             cJSON_Delete(root);
             return -1;
         }
 
-        if (parse_airly_time(from->valuestring, &measurements[i].from_ts) != 0 ||
-            parse_airly_time(till->valuestring, &measurements[i].till_ts) != 0) {
-            airly_free_measurements(measurements, (size_t)count);
+        if (parse_airly_time(from->valuestring, &from_ts) != 0 ||
+            parse_airly_time(till->valuestring, &till_ts) != 0) {
+            measurements_free(measurements, (size_t)count);
             cJSON_Delete(root);
             return -1;
         }
 
         values_count = cJSON_GetArraySize(values);
-        if (values_count > 0) {
-            measurements[i].values = calloc((size_t)values_count, sizeof(ValuePair));
-            if (!measurements[i].values) {
-                airly_free_measurements(measurements, (size_t)count);
-                cJSON_Delete(root);
-                return -1;
-            }
+
+        measurements[i] = measurement_create(from_ts, till_ts,
+                                             values_count > 0 ? (size_t)values_count : 0);
+        if (!measurements[i]) {
+            measurements_free(measurements, (size_t)count);
+            cJSON_Delete(root);
+            return -1;
         }
 
         for (j = 0; j < values_count; j++) {
@@ -187,7 +170,7 @@ int airly_parse_history(const char *json, AirlyMeasurement **out_measurements, s
             cJSON *value = NULL;
 
             if (!cJSON_IsObject(pair)) {
-                airly_free_measurements(measurements, (size_t)count);
+                measurements_free(measurements, (size_t)count);
                 cJSON_Delete(root);
                 return -1;
             }
@@ -196,19 +179,13 @@ int airly_parse_history(const char *json, AirlyMeasurement **out_measurements, s
             value = cJSON_GetObjectItemCaseSensitive(pair, "value");
 
             if (!cJSON_IsString(name) || name->valuestring == NULL || !cJSON_IsNumber(value)) {
-                airly_free_measurements(measurements, (size_t)count);
+                measurements_free(measurements, (size_t)count);
                 cJSON_Delete(root);
                 return -1;
             }
 
-            measurements[i].values[j].name = strdup(name->valuestring);
-            if (!measurements[i].values[j].name) {
-                airly_free_measurements(measurements, (size_t)count);
-                cJSON_Delete(root);
-                return -1;
-            }
-            measurements[i].values[j].value = value->valuedouble;
-            measurements[i].values_count++;
+            measurement_set_value(measurements[i], (size_t)j,
+                                  name->valuestring, value->valuedouble);
         }
     }
 

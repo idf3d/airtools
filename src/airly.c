@@ -1,6 +1,7 @@
-#include "airly_db.h"
+#include "db.h"
 #include "airly_http.h"
 #include "airly_json.h"
+#include "config.h"
 
 #include <curl/curl.h>
 #include <signal.h>
@@ -28,12 +29,12 @@ static void sleep_with_stop(unsigned int sec) {
 
 static void run_once(void) {
     char *json = NULL;
-    AirlyMeasurement *measurements = NULL;
+    Measurement **measurements = NULL;
     size_t count = 0;
     time_t last_ts = 0;
     time_t now = 0;
 
-    if (airly_get_last_measurement_ts(&last_ts) != 0) {
+    if (db_get_last_ts(AIRLY_SENSOR_LABEL, &last_ts) != 0) {
         return;
     }
 
@@ -53,11 +54,12 @@ static void run_once(void) {
         return;
     }
 
-    if (airly_write_measurements_to_mysql(measurements, count) == 0) {
+    if (db_save_measurements(AIRLY_SENSOR_LABEL,
+                             (const Measurement *const *)measurements, count) == 0) {
         printf("Saved %zu history measurements to MySQL\n", count);
     }
 
-    airly_free_measurements(measurements, count);
+    measurements_free(measurements, count);
     free(json);
 }
 
@@ -77,6 +79,7 @@ int main(void) {
         }
     }
 
+    db_cleanup();
     curl_global_cleanup();
     return 0;
 }
