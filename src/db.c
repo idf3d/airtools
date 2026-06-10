@@ -18,6 +18,31 @@
 #include <stdlib.h>
 #include <string.h>
 
+static MYSQL *db_connect(void) {
+    MYSQL *conn = mysql_init(NULL);
+    unsigned int connect_timeout = DB_CONNECT_TIMEOUT_SEC;
+    unsigned int read_timeout = DB_READ_TIMEOUT_SEC;
+    unsigned int write_timeout = DB_WRITE_TIMEOUT_SEC;
+
+    if (!conn) {
+        fprintf(stderr, "mysql_init failed\n");
+        return NULL;
+    }
+
+    mysql_options(conn, MYSQL_OPT_CONNECT_TIMEOUT, &connect_timeout);
+    mysql_options(conn, MYSQL_OPT_READ_TIMEOUT, &read_timeout);
+    mysql_options(conn, MYSQL_OPT_WRITE_TIMEOUT, &write_timeout);
+
+    if (!mysql_real_connect(conn, DB_HOST, DB_USER, DB_PASS, DB_NAME, 0, NULL,
+                            0)) {
+        fprintf(stderr, "MySQL connect error: %s\n", mysql_error(conn));
+        mysql_close(conn);
+        return NULL;
+    }
+
+    return conn;
+}
+
 typedef struct {
     char *sensor;
     Measurement *measurement;
@@ -153,16 +178,8 @@ int db_save_measurements(const char *sensor, const Measurement *const *measureme
         "VALUES (FROM_UNIXTIME(?), ?, ?, ?)";
     size_t i;
 
-    conn = mysql_init(NULL);
+    conn = db_connect();
     if (!conn) {
-        fprintf(stderr, "mysql_init failed\n");
-        goto enqueue;
-    }
-
-    if (!mysql_real_connect(conn, DB_HOST, DB_USER, DB_PASS, DB_NAME, 0, NULL, 0)) {
-        fprintf(stderr, "MySQL connect error: %s\n", mysql_error(conn));
-        mysql_close(conn);
-        conn = NULL;
         goto enqueue;
     }
 
@@ -234,15 +251,8 @@ int db_get_last_ts(const char *sensor, time_t *out_ts) {
     }
     *out_ts = 0;
 
-    conn = mysql_init(NULL);
+    conn = db_connect();
     if (!conn) {
-        fprintf(stderr, "mysql_init failed\n");
-        return -1;
-    }
-
-    if (!mysql_real_connect(conn, DB_HOST, DB_USER, DB_PASS, DB_NAME, 0, NULL, 0)) {
-        fprintf(stderr, "MySQL connect error: %s\n", mysql_error(conn));
-        mysql_close(conn);
         return -1;
     }
 

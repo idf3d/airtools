@@ -7,6 +7,10 @@
 #define DB_PASS "YOUR_DB_PASSWORD"
 #define DB_NAME "YOUR_DB_NAME"
 
+#define DB_CONNECT_TIMEOUT_SEC 10
+#define DB_READ_TIMEOUT_SEC    15
+#define DB_WRITE_TIMEOUT_SEC   15
+
 /* Airly config */
 #define AIRLY_API_URL "https://airapi.airly.eu/v2/measurements/point"
 #define AIRLY_LAT "YOUR_AIRLY_LATITUDE"
