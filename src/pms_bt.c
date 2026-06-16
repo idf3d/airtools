@@ -20,11 +20,32 @@ int main(void) {
 
     printf("Starting PMS (Bluetooth), press Ctrl+C to stop...\n");
 
+    int reconnect_attempts = 0;
+
     while (!stop) {
         int ble_fd = pms_ble_start(PMS_BT_DEVICE_NAME, PMS_BT_SERVICE_UUID,
                                    PMS_BT_CHAR_UUID, &stop);
         if (ble_fd < 0) {
-            break;
+            if (stop) {
+                break;
+            }
+
+            reconnect_attempts++;
+            fprintf(stderr, "BLE start failed (%d/%d)\n",
+                    reconnect_attempts, PMS_BT_RECONNECT_MAX_RETRIES);
+
+            if (reconnect_attempts > PMS_BT_RECONNECT_MAX_RETRIES) {
+                fprintf(stderr, "BLE retry limit exceeded, shutting down\n");
+                stop = 1;
+                break;
+            }
+
+            printf("Reconnecting in 5 seconds...\n");
+            int wait;
+            for (wait = 0; wait < 5 && !stop; wait++) {
+                sleep(1);
+            }
+            continue;
         }
 
         uint8_t buf[256];
@@ -114,6 +135,7 @@ int main(void) {
                 size_t values_count;
 
                 if (pms_packet_parse(buf, packet_len, &values_count, values) == 0) {
+                    reconnect_attempts = 0;
                     size_t k;
                     for (k = 0; k < values_count; k++) {
                         sum_values[k] += values[k];
@@ -165,6 +187,13 @@ int main(void) {
         pms_ble_stop();
 
         if (!stop) {
+            reconnect_attempts++;
+            if (reconnect_attempts > PMS_BT_RECONNECT_MAX_RETRIES) {
+                fprintf(stderr, "BLE retry limit exceeded, shutting down\n");
+                stop = 1;
+                break;
+            }
+
             int wait;
             printf("Reconnecting in 5 seconds...\n");
             for (wait = 0; wait < 5 && !stop; wait++) {

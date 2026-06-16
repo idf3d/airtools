@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include "pms_ble.h"
+#include "config.h"
 
 #include <simplecble/simplecble.h>
 
@@ -130,13 +131,20 @@ int pms_ble_start(const char *device_name, const char *service_uuid,
         return -1;
     }
 
-    /* Scan repeatedly until device is found or stop is requested */
+    /* Scan repeatedly until device is found, stop is requested, or limit is hit. */
     bool found = false;
+    int scan_attempts = 0;
     while (!*stop_flag) {
+        scan_attempts++;
         printf("Scanning for BLE device '%s'...\n", device_name);
 
         if (simpleble_adapter_scan_for(g_adapter, 5000) != SIMPLEBLE_SUCCESS) {
-            fprintf(stderr, "BLE scan failed, retrying...\n");
+            fprintf(stderr, "BLE scan failed (attempt %d/%d), retrying...\n",
+                    scan_attempts, PMS_BT_RECONNECT_MAX_RETRIES);
+            if (scan_attempts > PMS_BT_RECONNECT_MAX_RETRIES) {
+                fprintf(stderr, "BLE scan retry limit exceeded\n");
+                break;
+            }
             sleep(1);
             continue;
         }
@@ -162,7 +170,12 @@ int pms_ble_start(const char *device_name, const char *service_uuid,
         if (found)
             break;
 
-        printf("Device '%s' not found, rescanning...\n", device_name);
+        printf("Device '%s' not found (attempt %d/%d), rescanning...\n",
+               device_name, scan_attempts, PMS_BT_RECONNECT_MAX_RETRIES);
+        if (scan_attempts > PMS_BT_RECONNECT_MAX_RETRIES) {
+            fprintf(stderr, "BLE scan retry limit exceeded\n");
+            break;
+        }
     }
 
     if (!found) {
@@ -242,4 +255,3 @@ void pms_ble_stop(void) {
     }
     cleanup_all();
 }
-
